@@ -142,6 +142,53 @@ assign loan_io_out[50] = uart_rx;
         .memory_mem_dm                                      (HPS_DDR3_DM),                                      //                         .mem_dm
         .memory_oct_rzqin                                   (HPS_DDR3_RZQ)                                    //                         .oct_rzqin
     );
+	 
+	 
+	 
+	 
+	 /////////////////////////////////////////////////////////
+wire [31:0] dat_i;
+wire [31:0] dat_o;
+wire [30:1] adr;
+wire        we;
+wire        tga;
+wire [ 1:0] sel;
+wire        stb;
+wire        cyc;
+wire        ack;
+	 
+	 // bridge to sdram
+	 wb_to_avalon_bridge #(
+		.DW(32),					// Data width
+		.AW(30),					// Address width
+		.BURST_SUPPORT(0)
+	) wb2avl (
+		
+		// Wishbone Slave Input
+		.wb_adr_i               (adr),
+		.wb_dat_i               (dat_i),
+		.wb_sel_i               (sel),
+		.wb_we_i                (we),
+		.wb_cyc_i               (cyc),
+		.wb_stb_i               (stb),
+		.wb_cti_i               (3'b000),	//CLASSIC
+		.wb_bte_i               (2'b00),		//LINEAR_BURST
+		.wb_dat_o               (dat_o),
+		.wb_ack_o               (ack),
+		//.wb_err_o               (),
+		//.wb_rty_o               (),
+	
+		// Avalon Master Output
+		.m_av_address_o			(sdram0_data_address),
+		.m_av_byteenable_o		(sdram0_data_byteenable),
+		.m_av_read_o				(sdram0_data_read),
+		.m_av_readdata_i			(sdram0_data_readdata),
+		.m_av_burstcount_o		(sdram0_data_burstcount),
+		.m_av_write_o				(sdram0_data_write),
+		.m_av_writedata_o			(sdram0_data_writedata),
+		.m_av_waitrequest_i		(sdram0_data_waitrequest),
+		.m_av_readdatavalid_i	(sdram0_data_readdatavalid)
+	);
 
 	 
 endmodule
