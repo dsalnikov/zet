@@ -58,9 +58,12 @@ module soc(
 	
 	
 	//loan io
-	inout hps_io_hps_io_gpio_inst_LOANIO36,
-	inout hps_io_hps_io_gpio_inst_LOANIO38,
-	inout hps_io_hps_io_gpio_inst_LOANIO45,
+	//sd card io
+	inout hps_io_hps_io_gpio_inst_LOANIO36, //MOSI
+	inout hps_io_hps_io_gpio_inst_LOANIO38, //MISO
+	inout hps_io_hps_io_gpio_inst_LOANIO45, //CLK
+	inout hps_io_hps_io_gpio_inst_LOANIO47, //CS
+	//uart io
 	inout hps_io_hps_io_gpio_inst_LOANIO49,
 	inout hps_io_hps_io_gpio_inst_LOANIO50
 	
@@ -121,7 +124,8 @@ assign loan_io_out[50] = uart_rx;
 		  .hps_io_hps_io_gpio_inst_LOANIO36                   (hps_io_hps_io_gpio_inst_LOANIO36),                   //                   hps_io.hps_io_gpio_inst_LOANIO36
         .hps_io_hps_io_gpio_inst_LOANIO38                   (hps_io_hps_io_gpio_inst_LOANIO38),                   //                         .hps_io_gpio_inst_LOANIO38
         .hps_io_hps_io_gpio_inst_LOANIO45                   (hps_io_hps_io_gpio_inst_LOANIO45),                   //                         .hps_io_gpio_inst_LOANIO45
-        
+        .hps_io_hps_io_gpio_inst_LOANIO47							(hps_io_hps_io_gpio_inst_LOANIO47),                   //                         .hps_io_gpio_inst_LOANIO47
+		  
 		  .hps_io_hps_io_gpio_inst_LOANIO49                   (hps_io_hps_io_gpio_inst_LOANIO49),                   //                         .hps_io_gpio_inst_LOANIO49
         .hps_io_hps_io_gpio_inst_LOANIO50                   (hps_io_hps_io_gpio_inst_LOANIO50),                   //                         .hps_io_gpio_inst_LOANIO50
         
@@ -190,5 +194,35 @@ wire        ack;
 		.m_av_readdatavalid_i	(sdram0_data_readdatavalid)
 	);
 
+
+	wire clk;
+	wire rst;
+	
+	wire [15:0] bios_dat_i;
+	wire [15:0] bios_dat_o;
+	wire [19:1] bios_adr;
+	wire        bios_we;
+	wire        bios_tga;
+	wire [ 1:0] bios_sel;
+	wire        bios_stb;
+	wire        bios_cyc;
+	wire        bios_ack;
+	 
+	 
+	bios_rom bios(
+		.wb_clk_i(clk),
+		.wb_rst_i(rst),
+		
+		.wb_dat_i(bios_dat_i),
+		.wb_dat_o(bios_dat_o),
+		.wb_we_i (bios_we),
+		.wb_adr_i(bios_adr[1]),
+		.wb_sel_i(bios_sel),
+		.wb_stb_i(bios_stb),
+		.wb_cyc_i(bios_cyc),
+		.wb_ack_o(bios_ack)
+	);
+	
+	
 	 
 endmodule

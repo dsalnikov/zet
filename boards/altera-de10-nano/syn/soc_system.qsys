@@ -273,7 +273,7 @@
   <parameter name="INCLUDE_BOARD_DELAY_MODEL" value="false" />
   <parameter name="INCLUDE_MULTIRANK_BOARD_DELAY_MODEL" value="false" />
   <parameter name="IS_ES_DEVICE" value="false" />
-  <parameter name="LOANIO_Enable">No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,Yes,No,Yes,No,No,No,No,No,No,Yes,No,No,No,Yes,Yes,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No</parameter>
+  <parameter name="LOANIO_Enable">No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,Yes,No,Yes,No,No,No,No,No,No,Yes,No,Yes,No,Yes,Yes,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No,No</parameter>
   <parameter name="LOCAL_ID_WIDTH" value="8" />
   <parameter name="LRDIMM_EXTENDED_CONFIG">0x000000000000000000</parameter>
   <parameter name="LWH2F_Enable" value="true" />
