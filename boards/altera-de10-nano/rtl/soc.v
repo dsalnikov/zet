@@ -93,10 +93,15 @@ wire [66:0] loan_io_oe;
 //uart
 assign loan_io_oe[50] = 1'b1;
 
-wire uart_tx = loan_io_out[50];
-wire uart_rx = loan_io_in[49];
+//sd card io
+assign loan_io_oe[45] = 1'b1;
+assign loan_io_oe[36] = 1'b1;
+assign loan_io_oe[47] = 1'b1;
 
-assign loan_io_out[50] = uart_rx;
+//wire uart_tx = loan_io_out[50];
+//wire uart_rx = loan_io_in[49];
+
+//assign loan_io_out[50] = uart_rx;
 
 
 
@@ -155,12 +160,14 @@ assign loan_io_out[50] = uart_rx;
 	wire vga_clk;
 	wire lock;
 	 
-	pll pll (
-		.inclk0 (FPGA_CLK1_50),
-		.c0     (),    			// 100 Mhz
-		.c1     (),    		   // to SDRAM chip
-		.c4     (vga_clk),          	// 12.5 Mhz
-		.locked (lock)
+
+	pll pll(
+		.refclk(FPGA_CLK1_50),   // refclk.clk
+		.rst(SW[0]),      		 // reset.reset
+		.outclk_0(),             // 100 Mhz
+		.outclk_1(clk),          // 25 Mhz
+		.outclk_2(vga_clk),      // 12.5 Mhz
+		.locked(lock)            // locked.export
 	);
 
 	wire reset_n = lock;
@@ -506,8 +513,8 @@ assign loan_io_out[50] = uart_rx;
     .wb_ack_o (uart_ack_o),
     .wb_tgc_o (intv[4]),          // Interrupt request
 
-    .rs232_tx (uart_txd_),        // UART signals
-    .rs232_rx (uart_rxd_)         // serial input/output
+    .rs232_tx (loan_io_out[50]),        // UART signals
+    .rs232_rx (loan_io_in[49])         // serial input/output
   );
 
    ps2 ps2 (
@@ -586,10 +593,10 @@ assign loan_io_out[50] = uart_rx;
 
    sdspi sdspi (
     // Serial pad signal
-    .sclk (sd_sclk_),
-    .miso (sd_miso_),
-    .mosi (sd_mosi_),
-    .ss   (sd_ss_),
+    .sclk (loan_io_out[45]),
+    .miso (loan_io_in[38]),
+    .mosi (loan_io_out[36]),
+    .ss   (loan_io_out[47]),
 
     // Wishbone slave interface
     .wb_clk_i (sdram_clk),
