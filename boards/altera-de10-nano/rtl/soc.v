@@ -65,12 +65,13 @@ module soc(
 	inout hps_io_hps_io_gpio_inst_LOANIO47, //CS
 	//uart io
 	inout hps_io_hps_io_gpio_inst_LOANIO49,
-	inout hps_io_hps_io_gpio_inst_LOANIO50
+	inout hps_io_hps_io_gpio_inst_LOANIO50,
 	
+	output [19:0] pc
 );
 
 
-
+wire [5:0] leds_h;
 
 
 wire sdram_clk;
@@ -159,19 +160,29 @@ assign loan_io_oe[47] = 1'b1;
 	wire clk;
 	wire vga_clk;
 	wire lock;
-	 
+	wire        rst_lck;
 
 	pll pll(
 		.refclk(FPGA_CLK1_50),   // refclk.clk
 		.rst(SW[0]),      		 // reset.reset
-		.outclk_0(),             // 100 Mhz
-		.outclk_1(clk),          // 25 Mhz
-		.outclk_2(vga_clk),      // 12.5 Mhz
+		.outclk_0(sdram_clk),    // 100 Mhz
+		.outclk_1(vga_clk),      // 25 Mhz
+		.outclk_2(clk),          // 12.5 Mhz
 		.locked(lock)            // locked.export
 	);
 
 	wire reset_n = lock;
 
+	clk_gen #(
+		.res   (21),
+		.phase (21'd100091)
+	) timerclk (
+		.clk_i (vga_clk),    // 25 MHz
+		.rst_i (rst),
+		.clk_o (timer_clk)   // 1.193178 MHz (required 1.193182 MHz)
+	);
+	
+	
 `ifndef SIMULATION
   /*
    * Debounce it (counter holds reset for 10.49ms),
@@ -228,6 +239,9 @@ assign loan_io_oe[47] = 1'b1;
 	assign HDMI_TX_D[15:8] = {3'b000, vga_g};
 	assign HDMI_TX_D[23:16] = {3'b000, vga_r};
 
+	assign HDMI_TX_HS = vga_hsync;
+	assign HDMI_TX_VS = vga_vsync;
+	
 	//external sram wires
 	wire [17:1] csrm_adr_o;
 	wire [ 1:0] csrm_sel_o;
@@ -278,13 +292,53 @@ assign loan_io_oe[47] = 1'b1;
 	wire        sdram_cyc;
 	wire        sdram_ack;
 		 
+		 
+  // wires to SDRAM controller
+  wire [19:1] fmlbrg_adr_s;
+  wire [15:0] fmlbrg_dat_w_s;
+  wire [15:0] fmlbrg_dat_r_s;
+  wire [ 1:0] fmlbrg_sel_s;
+  wire        fmlbrg_cyc_s;
+  wire        fmlbrg_stb_s;
+  wire        fmlbrg_tga_s;
+  wire        fmlbrg_we_s;
+  wire        fmlbrg_ack_s;
+  
+	wb_abrgr wb_fmlbrg (
+    .sys_rst (rst),
+
+    // Wishbone slave interface
+    .wbs_clk_i (clk),
+    .wbs_adr_i (fmlbrg_adr_s),
+    .wbs_dat_i (fmlbrg_dat_w_s),
+    .wbs_dat_o (fmlbrg_dat_r_s),
+    .wbs_sel_i (fmlbrg_sel_s),
+    .wbs_tga_i (fmlbrg_tga_s),
+    .wbs_stb_i (fmlbrg_stb_s),
+    .wbs_cyc_i (fmlbrg_cyc_s),
+    .wbs_we_i  (fmlbrg_we_s),
+    .wbs_ack_o (fmlbrg_ack_s),
+
+    // Wishbone master interface
+    .wbm_clk_i (sdram_clk),
+    .wbm_adr_o (sdram_adr[19:1]),
+    .wbm_dat_o (sdram_dat_i[15:0]),
+    .wbm_dat_i (sdram_dat_o[15:0]),
+    .wbm_sel_o (sdram_sel),
+    .wbm_tga_o (sdram_tga),
+    .wbm_stb_o (sdram_stb),
+    .wbm_cyc_o (sdram_cyc),
+    .wbm_we_o  (sdram_we),
+    .wbm_ack_i (sdram_ack)
+  );
+  
 	 // bridge to sdram
 	 wb_to_avalon_bridge #(
 		.DW(32),					// Data width
 		.AW(30),					// Address width
 		.BURST_SUPPORT(0)
 	) wb2avl (
-		.wb_clk_i					(clk),
+		.wb_clk_i					(sdram_clk),
 		.wb_rst_i					(rst),
 		
 		// Wishbone Slave Input
@@ -319,8 +373,8 @@ assign loan_io_oe[47] = 1'b1;
   //Zet cpu system
 
 	
-  wire [19:0] pc;
-
+  //wire [19:0] pc;
+  
   wire [15:0] dat_o;
   wire [15:0] dat_i;
   wire [19:1] adr;
@@ -450,6 +504,11 @@ assign loan_io_oe[47] = 1'b1;
   wire        kaud_cyc_i;
   wire        kaud_ack_o;
 
+  wire        sb_cyc_i;
+  wire        sb_stb_i;
+
+  wire        csr_cyc_i;
+  wire        csr_stb_i;
   
 	zet zet (
     .pc (pc),
@@ -628,7 +687,7 @@ assign loan_io_oe[47] = 1'b1;
     // GPIO inputs/outputs
     .leds_  (),
     .sw_    (),
-    .pb_    (),
+    .pb_    (KEY[0]),
     .tick   (intv[0]),
     .nmi_pb (nmi_pb) // NMI from pushbutton
   );
@@ -746,14 +805,14 @@ assign loan_io_oe[47] = 1'b1;
     .s5_ack_i (gpio_ack_o),
 
     // Slave 6 interface - csr bridge
-    //.s6_dat_i (csrbrg_dat_r_s),
-    //.s6_dat_o (csrbrg_dat_w_s),
-    //.s6_adr_o ({csrbrg_tga_s,csrbrg_adr_s}),
-    //.s6_sel_o (csrbrg_sel_s),
-    //.s6_we_o  (csrbrg_we_s),
-    //.s6_cyc_o (csrbrg_cyc_s),
-    //.s6_stb_o (csrbrg_stb_s),
-    //.s6_ack_i (csrbrg_ack_s),
+    .s6_dat_i (),
+    .s6_dat_o (),
+    .s6_adr_o (),
+    .s6_sel_o (),
+    .s6_we_o  (),
+    .s6_cyc_o (csr_cyc_i),
+    .s6_stb_o (csr_stb_i),
+    .s6_ack_i (csr_cyc_i && csr_stb_i),
 
     // Slave 7 interface - timer
     .s7_dat_i (timer_dat_o),
@@ -786,15 +845,16 @@ assign loan_io_oe[47] = 1'b1;
     .s9_ack_i (sb_cyc_i && sb_stb_i),
 
     // Slave A interface - sdram
-    //.sA_dat_i (fmlbrg_dat_r_s),
-    //.sA_dat_o (fmlbrg_dat_w_s),
-    //.sA_adr_o ({fmlbrg_tga_s,fmlbrg_adr_s}),
-    //.sA_sel_o (fmlbrg_sel_s),
-    //.sA_we_o  (fmlbrg_we_s),
-    //.sA_cyc_o (fmlbrg_cyc_s),
-    //.sA_stb_o (fmlbrg_stb_s),
-    //.sA_ack_i (fmlbrg_ack_s),
-
+    .sA_dat_i (fmlbrg_dat_r_s),
+    .sA_dat_o (fmlbrg_dat_w_s),
+    .sA_adr_o ({fmlbrg_tga_s,fmlbrg_adr_s}),
+    .sA_sel_o (fmlbrg_sel_s),
+    .sA_we_o  (fmlbrg_we_s),
+    .sA_cyc_o (fmlbrg_cyc_s),
+    .sA_stb_o (fmlbrg_stb_s),
+    .sA_ack_i (fmlbrg_ack_s),
+	 
+	 
     // Slave B interface - default
     .sB_dat_i (16'h0000),
     .sB_dat_o (),
