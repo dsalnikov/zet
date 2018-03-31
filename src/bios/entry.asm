@@ -325,7 +325,43 @@ hd_post_init80:         out     dx, al           ; 80 cycles of initialization
                         mov     ds:0048dh, al
                         ret
 
-hd_post_cmd1:           mov     ax, 041h        ; CS = 0, CMD1: activate the init sequence
+hd_post_cmd1:           mov     ax, 048h        ; CS = 0, CMD8: check for SDHC/SDXC
+                        out     dx, ax
+                        xor     al, al
+                        out     dx, al          ; 0x000001aa;
+                        out     dx, al
+						mov		al, 001h
+                        out     dx, al
+						mov 	al, 0aah
+                        out     dx, al
+                        mov     al, 0ffh
+
+                        out     dx, al          ; CRC (not used)
+                        out     dx, al          ; wait
+                        in      al, dx          ; status
+                        mov     cl, al
+                        mov     ax, 0ffffh
+                        out     dx, ax          ; CS = 1
+                        cmp     cl, 05h
+                        jnz     hd_post_cmd2    ; if 5 - sdsc, so jump to next cmd
+						
+						in      al, dx          ; read another R7 bytes
+                        in      al, dx          
+						mov     cl, al
+                        in      al, dx      
+						
+                        cmp 	cl, 01h
+						jne 	hd_post_cmd2
+
+						cmp		al, 0aah
+						jne		hd_post_cmd2
+						
+                        mov     al, 8           ; error 8
+                        mov     ds:0048dh, al
+                        ret							
+
+
+hd_post_cmd2:           mov     ax, 041h        ; CS = 0, CMD1: activate the init sequence
                         out     dx, ax
                         xor     al, al
                         out     dx, al          ; 32-bit zero value
