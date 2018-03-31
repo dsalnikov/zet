@@ -50,6 +50,7 @@ module vga_lcd (
     output reg [3:0] vga_blue_o,
     output reg       horiz_sync,
     output reg       vert_sync,
+	 output           vga_de,
 
     // CRTC
     input [5:0] cur_start,
@@ -299,4 +300,6 @@ module vga_lcd (
         vga_red_o   <= video_on ? red : 4'h0;
       end
 
+		assign vga_de = video_on;
+		
 endmodule

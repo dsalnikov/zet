@@ -37,6 +37,7 @@ module vga (
     output [ 3:0] vga_blue_o,
     output        horiz_sync,
     output        vert_sync,
+	 output        vga_de,
 
     // CSR SRAM master interface
     output [17:1] csrm_adr_o,
@@ -217,6 +218,7 @@ module vga (
     .vga_blue_o  (vga_blue_o),
     .horiz_sync  (horiz_sync),
     .vert_sync   (w_vert_sync),
+	 .vga_de      (vga_de),
 
     .cur_start  (cur_start),
     .cur_end    (cur_end),

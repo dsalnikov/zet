@@ -5,10 +5,6 @@ module soc(
 	output		          		ADC_SDI,
 	input 		          		ADC_SDO,
 
-	//////////// ARDUINO //////////
-	inout 		    [15:0]		ARDUINO_IO,
-	inout 		          		ARDUINO_RESET_N,
-
 	//////////// CLOCK //////////
 	input 		          		FPGA_CLK1_50,
 	input 		          		FPGA_CLK2_50,
@@ -67,7 +63,21 @@ module soc(
 	inout hps_io_hps_io_gpio_inst_LOANIO49,
 	inout hps_io_hps_io_gpio_inst_LOANIO50,
 	
-	output [19:0] pc
+	
+
+		// VGA signals
+	//output [ 3:0] vga_r,
+	//output [ 3:0] vga_g,
+	//output [ 3:0] vga_b,
+	//output        vga_hsync,
+	//output        vga_vsync,
+	
+	 // PS2 signals
+    input         ps2_kclk_, // PS2 keyboard Clock
+    inout         ps2_kdat_, // PS2 Keyboard Data
+    inout         ps2_mclk_, // PS2 Mouse Clock
+    inout         ps2_mdat_ // PS2 Mouse Data
+
 );
 
 
@@ -230,17 +240,8 @@ assign loan_io_oe[47] = 1'b1;
 	wire [ 3:0] vga_b;
 	wire        vga_hsync;
 	wire        vga_vsync;
+	wire 			vga_de;
 	
-	//HDMI_TX_D[23:16] r
-	//HDMI_TX_D[15:8] g
-	//HDMI_TX_D[7:0] b
-	
-	assign HDMI_TX_D[7:0] = {3'b000, vga_b};
-	assign HDMI_TX_D[15:8] = {3'b000, vga_g};
-	assign HDMI_TX_D[23:16] = {3'b000, vga_r};
-
-	assign HDMI_TX_HS = vga_hsync;
-	assign HDMI_TX_VS = vga_vsync;
 	
 	//external sram wires
 	wire [17:1] csrm_adr_o;
@@ -248,6 +249,45 @@ assign loan_io_oe[47] = 1'b1;
 	wire        csrm_we_o;
 	wire [15:0] csrm_dat_o;
 	wire [15:0] csrm_dat_i;
+
+  // cross clock domain synchronized signals
+  wire [15:0] vga_dat_o_s;
+  wire [15:0] vga_dat_i_s;
+  wire        vga_tga_i_s;
+  wire [19:1] vga_adr_i_s;
+  wire [ 1:0] vga_sel_i_s;
+  wire        vga_we_i_s;
+  wire        vga_cyc_i_s;
+  wire        vga_stb_i_s;
+  wire        vga_ack_o_s;	
+
+	wb_abrg vga_brg (
+		.sys_rst (rst),
+
+		// Wishbone slave interface
+		.wbs_clk_i (clk),
+		.wbs_adr_i (vga_adr_i_s),
+		.wbs_dat_i (vga_dat_i_s),
+		.wbs_dat_o (vga_dat_o_s),
+		.wbs_sel_i (vga_sel_i_s),
+		.wbs_tga_i (vga_tga_i_s),
+		.wbs_stb_i (vga_stb_i_s),
+		.wbs_cyc_i (vga_cyc_i_s),
+		.wbs_we_i  (vga_we_i_s),
+		.wbs_ack_o (vga_ack_o_s),
+
+		// Wishbone master interface
+		.wbm_clk_i (vga_clk),
+		.wbm_adr_o (vga_adr_i),
+		.wbm_dat_o (vga_dat_i),
+		.wbm_dat_i (vga_dat_o),
+		.wbm_sel_o (vga_sel_i),
+		.wbm_tga_o (vga_tga_i),
+		.wbm_stb_o (vga_stb_i),
+		.wbm_cyc_o (vga_cyc_i),
+		.wbm_we_o  (vga_we_i),
+		.wbm_ack_i (vga_ack_o)
+	);
 
 	vga vga (
 		.wb_rst_i (rst),
@@ -270,16 +310,28 @@ assign loan_io_oe[47] = 1'b1;
 		.vga_blue_o  (vga_b),
 		.horiz_sync  (vga_hsync),
 		.vert_sync   (vga_vsync),
+		.vga_de		 (vga_de),
 
 		// CSR SRAM master interface
 		.csrm_adr_o (csrm_adr_o),
 		.csrm_sel_o (csrm_sel_o),
 		.csrm_we_o  (csrm_we_o),
 		.csrm_dat_o (csrm_dat_o),
-		.csrm_dat_i (csrm_dat_i)
+		.csrm_dat_i (16'h0755)
 	);
  
-	 
+ 
+assign HDMI_TX_CLK = vga_clk;
+assign HDMI_TX_HS = vga_hsync;
+assign HDMI_TX_VS = vga_vsync;
+assign HDMI_TX_DE = vga_de;
+
+assign HDMI_TX_D[7:0] = {vga_b, 3'b000};
+assign HDMI_TX_D[15:8] = {vga_g, 3'b000};
+assign HDMI_TX_D[23:16] = {vga_r, 3'b000};
+
+
+ 
 	 
 	 /////////////////////////////////////////////////////////
 	wire [31:0] sdram_dat_i;
@@ -510,6 +562,8 @@ assign loan_io_oe[47] = 1'b1;
   wire        csr_cyc_i;
   wire        csr_stb_i;
   
+  wire [13:0] leds;
+  
 	zet zet (
     .pc (pc),
 
@@ -685,7 +739,7 @@ assign loan_io_oe[47] = 1'b1;
     .wb_ack_o (gpio_ack_o),
 
     // GPIO inputs/outputs
-    .leds_  (),
+    .leds_  (leds),
     .sw_    (),
     .pb_    (KEY[0]),
     .tick   (intv[0]),
@@ -755,14 +809,14 @@ assign loan_io_oe[47] = 1'b1;
     .s0_ack_i (rom_ack_o),
 
      // Slave 1 interface - vga
-    .s1_dat_i (vga_dat_o),
-    .s1_dat_o (vga_dat_i),
-    .s1_adr_o ({vga_tga_i,vga_adr_i}),
-    .s1_sel_o (vga_sel_i),
-    .s1_we_o  (vga_we_i),
-    .s1_cyc_o (vga_cyc_i),
-    .s1_stb_o (vga_stb_i),
-    .s1_ack_i (vga_ack_o),
+    .s1_dat_i (vga_dat_o_s),
+    .s1_dat_o (vga_dat_i_s),
+    .s1_adr_o ({vga_tga_i_s,vga_adr_i_s}),
+    .s1_sel_o (vga_sel_i_s),
+    .s1_we_o  (vga_we_i_s),
+    .s1_cyc_o (vga_cyc_i_s),
+    .s1_stb_o (vga_stb_i_s),
+    .s1_ack_i (vga_ack_o_s),
 
     // Slave 2 interface - uart
     .s2_dat_i (uart_dat_o),
@@ -875,6 +929,7 @@ assign loan_io_oe[47] = 1'b1;
 				(inta ? { 13'b0000_0000_0000_1, iid } :
 				sw_dat_o);
 
-	
+
+	assign LEDS = leds[7:0];
 	 
 endmodule
